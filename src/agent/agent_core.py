@@ -3,7 +3,7 @@ from collections.abc import AsyncGenerator
 
 from loguru import logger
 from strands import Agent
-from strands.models import BedrockModel
+from strands.models.gemini import GeminiModel
 from strands.session import FileSessionManager
 from strands_tools import stop
 
@@ -26,11 +26,19 @@ class AgentOrchestrator:
             session_id=chat_id, directory=settings.session_dir
         )
 
-        # Create Bedrock model
-        self.model = BedrockModel(
-            model_id=settings.bedrock_model_id,
-            region_name=settings.aws_region,
-            temperature=settings.bedrock_temperature,
+        # Create model
+        self.model = GeminiModel(
+            client_args={
+                "api_key": settings.gemini_api_key,
+            },
+            model_id=settings.gemini_model,
+            params={
+                # some sample model parameters
+                "temperature": 0.7,
+                "max_output_tokens": 2048,
+                "top_p": 0.9,
+                "top_k": 40,
+            },
         )
 
     async def stream_response(self, message: str) -> AsyncGenerator[str]:
@@ -56,21 +64,19 @@ class AgentOrchestrator:
             ),
         )
 
+        logger.info("Starting agent stream")
         # Stream agent response
         async for event in agent.stream_async(message):
             # Check for stop signal during streaming
             if await self._check_stop():
                 logger.info(f"chat_id=<{self.chat_id}> | Stop detected during streaming")
                 agent.tool.stop(message="The agent has been gracefully stopped!")
+                yield "[STOPPED]"
                 return
 
-            # Extract and yield text content
+            await asyncio.sleep(1)
             if "data" in event:
-                data = event["data"]
-                if isinstance(data, str):
-                    yield data
-                elif isinstance(data, dict) and "text" in data:
-                    yield data["text"]
+                yield event["data"]
 
             # Small delay to allow stop signal checks
             await asyncio.sleep(0.01)

@@ -30,7 +30,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     chat_id: str
     message_count: int
-    status: str
+    status: str  # "new", "active", or other states
 
 
 @router.post("/chat/{chat_id}")
@@ -115,7 +115,12 @@ async def get_chat(chat_id: str):
         session_file = session_dir / f"{chat_id}.json"
 
         if not session_file.exists():
-            raise HTTPException(status_code=404, detail="Chat not found")
+            # Return new chat info instead of 404 for better UX
+            return ChatResponse(
+                chat_id=chat_id,
+                message_count=0,
+                status="new",
+            )
 
         with open(session_file) as f:
             data = json.load(f)

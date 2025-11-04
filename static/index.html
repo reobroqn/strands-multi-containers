@@ -310,6 +310,7 @@
             // Close previous connection if exists
             if (eventSource) {
                 eventSource.close();
+                eventSource = null;
             }
 
             // Add user message
@@ -322,6 +323,13 @@
             document.getElementById('messageInput').value = '';
 
             currentChatId = chatId;
+
+            // Create bot message element
+            const chatBox = document.getElementById('chatBox');
+            const lastMessage = document.createElement('div');
+            lastMessage.className = 'message bot-message';
+            lastMessage.textContent = 'Agent: ';
+            chatBox.appendChild(lastMessage);
 
             try {
                 const response = await fetch(`/api/v1/chat/${chatId}`, {
@@ -337,46 +345,43 @@
                 }
 
                 showStatus('Agent is responding...', 'connected');
-                addMessage('Agent: ', 'bot-message');
 
-                // Handle Server-Sent Events
-                const chatBox = document.getElementById('chatBox');
-                const lastMessage = chatBox.lastElementChild;
+                // Handle streaming response directly (not EventSource)
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
 
-                eventSource = new EventSource(`/api/v1/chat/${chatId}`);
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
 
-                eventSource.onmessage = (event) => {
-                    const data = event.data;
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
 
-                    if (data === '[DONE]') {
-                        showStatus('Response complete', 'connected');
-                        document.getElementById('sendBtn').disabled = false;
-                        document.getElementById('stopBtn').disabled = true;
-                        eventSource.close();
-                    } else if (data === '[STOPPED]') {
-                        lastMessage.textContent += '\n\n[Response stopped by user]';
-                        showStatus('Agent stopped successfully', 'connected');
-                        document.getElementById('sendBtn').disabled = false;
-                        document.getElementById('stopBtn').disabled = true;
-                        eventSource.close();
-                    } else if (data.startsWith('[ERROR]')) {
-                        lastMessage.textContent += `\n\n${data}`;
-                        showStatus('Error occurred', 'error');
-                        document.getElementById('sendBtn').disabled = false;
-                        document.getElementById('stopBtn').disabled = true;
-                        eventSource.close();
-                    } else {
-                        lastMessage.textContent += data;
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6).trim();
+
+                            if (data === '[DONE]') {
+                                showStatus('Response complete', 'connected');
+                                document.getElementById('sendBtn').disabled = false;
+                                document.getElementById('stopBtn').disabled = true;
+                            } else if (data === '[STOPPED]') {
+                                lastMessage.textContent += '\n\n[Response stopped by user]';
+                                showStatus('Agent stopped successfully', 'connected');
+                                document.getElementById('sendBtn').disabled = false;
+                                document.getElementById('stopBtn').disabled = true;
+                            } else if (data.startsWith('[ERROR]')) {
+                                lastMessage.textContent += `\n\n${data}`;
+                                showStatus('Error occurred', 'error');
+                                document.getElementById('sendBtn').disabled = false;
+                                document.getElementById('stopBtn').disabled = true;
+                            } else if (data) {
+                                lastMessage.textContent += data;
+                            }
+                        }
                     }
-                };
-
-                eventSource.onerror = (error) => {
-                    console.error('EventSource error:', error);
-                    showStatus('Connection error', 'error');
-                    document.getElementById('sendBtn').disabled = false;
-                    document.getElementById('stopBtn').disabled = true;
-                    eventSource.close();
-                };
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                }
 
             } catch (error) {
                 console.error('Fetch error:', error);
