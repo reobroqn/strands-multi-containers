@@ -42,34 +42,24 @@ async def start_chat(
     """Start a chat with streaming SSE response"""
     logger.info(f"chat_id=<{chat_id}> | Starting chat with message: {request.message[:100]}")
 
-    try:
-        orchestrator = AgentOrchestrator(chat_id)
+    orchestrator = AgentOrchestrator(chat_id)
 
-        async def generate_sse():
-            """Generate Server-Sent Events stream"""
-            try:
-                async for chunk in orchestrator.stream_response(request.message):
-                    yield f"data: {chunk}\n\n"
+    async def generate_sse():
+        """Generate Server-Sent Events stream"""
+        async for chunk in orchestrator.stream_response(request.message):
+            yield f"data: {chunk}\n\n"
 
-                yield "data: [DONE]\n\n"
+        yield "data: [DONE]\n\n"
 
-            except Exception as e:
-                logger.error(f"chat_id=<{chat_id}> | Stream error: {e}")
-                yield f"data: [ERROR] {e!s}\n\n"
-
-        return StreamingResponse(
-            generate_sse(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no",
-            },
-        )
-
-    except Exception as e:
-        logger.error(f"chat_id=<{chat_id}> | Failed to start chat: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+    return StreamingResponse(
+        generate_sse(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/chats")

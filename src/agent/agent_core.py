@@ -5,7 +5,7 @@ from loguru import logger
 from strands import Agent
 from strands.models.gemini import GeminiModel
 from strands.session import FileSessionManager
-from strands_tools import stop
+from strands_tools import handoff_to_user, stop
 
 from src.config import settings
 from src.services.redis_client import RedisClient
@@ -56,7 +56,7 @@ class AgentOrchestrator:
         agent = Agent(
             agent_id=self.chat_id,
             model=self.model,
-            tools=[stop],  # Use built-in stop tool
+            tools=[handoff_to_user, stop],  # Use built-in stop tool
             session_manager=self.session_manager,
             system_prompt=(
                 "You are a helpful AI assistant. When asked to stop or if interrupted, "
@@ -64,16 +64,19 @@ class AgentOrchestrator:
             ),
         )
 
+        logger.info(f"Start with state {self.stop_requested}")
         logger.info("Starting agent stream")
         # Stream agent response
         async for event in agent.stream_async(message):
             # Check for stop signal during streaming
             if await self._check_stop():
                 logger.info(f"chat_id=<{self.chat_id}> | Stop detected during streaming")
-                agent.tool.stop(message="The agent has been gracefully stopped!")
+                agent.tool.stop(
+                    message="The agent has been gracefully stopped!"
+                )
                 yield "[STOPPED]"
-                return
 
+            logger.info(event)
             await asyncio.sleep(1)
             if "data" in event:
                 yield event["data"]
