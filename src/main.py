@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
-from src.api import chat, stop
+from src.api import api_router
 from src.services.redis_client import RedisClient
 
 
@@ -41,9 +41,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# API routers
-app.include_router(chat.router, prefix="/api/v1", tags=["chat"])
-app.include_router(stop.router, prefix="/api/v1", tags=["stop"])
+# API router
+app.include_router(api_router, prefix="/api/v1")
 
 # Static files (mount last to avoid conflicts)
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
