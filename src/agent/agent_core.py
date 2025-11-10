@@ -71,9 +71,7 @@ class AgentOrchestrator:
             # Check for stop signal during streaming
             if await self._check_stop():
                 logger.info(f"chat_id=<{self.chat_id}> | Stop detected during streaming")
-                agent.tool.stop(
-                    message="The agent has been gracefully stopped!"
-                )
+                agent.tool.stop(message="The agent has been gracefully stopped!")
                 yield "[STOPPED]"
 
             logger.info(event)
