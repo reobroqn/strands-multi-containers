@@ -5,7 +5,7 @@ from loguru import logger
 from strands import Agent
 from strands.models.gemini import GeminiModel
 from strands.session import FileSessionManager
-from strands_tools import handoff_to_user, stop
+from strands_tools import stop
 
 from src.config import settings
 from src.services.redis_client import RedisClient
@@ -23,7 +23,7 @@ class AgentOrchestrator:
 
         os.makedirs(settings.session_dir, exist_ok=True)
         self.session_manager = FileSessionManager(
-            session_id=chat_id, directory=settings.session_dir
+            session_id=chat_id, storage_dir=settings.session_dir
         )
 
         # Create model
@@ -56,7 +56,7 @@ class AgentOrchestrator:
         agent = Agent(
             agent_id=self.chat_id,
             model=self.model,
-            tools=[handoff_to_user, stop],  # Use built-in stop tool
+            tools=[stop],  # Use built-in stop tool
             session_manager=self.session_manager,
             system_prompt=(
                 "You are a helpful AI assistant. When asked to stop or if interrupted, "
