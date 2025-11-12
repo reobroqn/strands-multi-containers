@@ -164,6 +164,3 @@ Thumbs.db
 data/sessions/
 logs/
 *.log
-
-# AWS credentials (use ~/.aws instead)
-.aws/

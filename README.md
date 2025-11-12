@@ -14,7 +14,6 @@ The system uses Redis to coordinate stop signals across multiple backend instanc
 
 ### Prerequisites
 - Docker and Docker Compose
-- AWS credentials (for Bedrock model)
 
 ### Run with Docker
 
@@ -24,6 +23,8 @@ cp .env.example .env
 nano .env
 
 # Start all services
+make build
+
 make start
 
 # Access the app
@@ -46,32 +47,6 @@ open http://localhost
 
 ### Stop
 - `POST /api/v1/stop/{chat_id}` - Stop single chat
-- `POST /api/v1/stop/bulk` - Stop multiple chats
-
-### Health
-- `GET /health` - Check system status
-
-## Configuration
-
-Edit `.env` file:
-
-```bash
-# Server
-HOST=0.0.0.0
-PORT=8000
-
-# Redis
-REDIS_HOST=redis
-REDIS_PORT=6379
-
-# AWS Bedrock
-AWS_REGION=us-west-2
-BEDROCK_MODEL_ID=amazon.nova-lite-v1:0
-BEDROCK_TEMPERATURE=0.3
-
-# Logging
-LOG_LEVEL=INFO
-```
 
 ## Local Development
 
@@ -83,7 +58,7 @@ uv sync --extra dev
 docker run -d -p 6379:6379 redis:7-alpine
 
 # Run the app
-uv run python -m app.main
+uv run fastapi dev src/main.py
 ```
 
 ## Project Structure
@@ -98,21 +73,10 @@ app/
 └── main.py                 # FastAPI app
 ```
 
-## Commands
-
-```bash
-make start    # Start all services
-make stop     # Stop all services
-make logs     # View logs
-make health   # Check health
-make clean    # Remove volumes
-```
-
 ## Tech Stack
 
 - **FastAPI** - Web framework
 - **Strands SDK** - AI agent framework
-- **AWS Bedrock** - AI inference
 - **Redis** - Signal coordination
 - **Docker** - Containerization
 - **Nginx** - Load balancing

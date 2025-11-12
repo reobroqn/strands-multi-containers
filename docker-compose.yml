@@ -21,8 +21,8 @@ services:
     container_name: fastapi-backend-1
     env_file:
       - .env
+    user: "${UID}:${GID}"
     volumes:
-      - ~/.aws:/home/nonroot/.aws:ro
       - ./data/sessions:/app/data/sessions
       - ./src:/app/src
     depends_on:
@@ -43,8 +43,8 @@ services:
     container_name: fastapi-backend-2
     env_file:
       - .env
+    user: "${UID}:${GID}"
     volumes:
-      - ~/.aws:/home/nonroot/.aws:ro
       - ./data/sessions:/app/data/sessions
       - ./src:/app/src
     depends_on:
@@ -65,8 +65,8 @@ services:
     container_name: fastapi-backend-3
     env_file:
       - .env
+    user: "${UID}:${GID}"
     volumes:
-      - ~/.aws:/home/nonroot/.aws:ro
       - ./data/sessions:/app/data/sessions
       - ./src:/app/src
     depends_on:
@@ -101,7 +101,6 @@ services:
 
 volumes:
   redis-data:
-    driver: local
 
 networks:
   app-network:

@@ -1,11 +1,10 @@
-import asyncio
 from collections.abc import AsyncGenerator
 
 from loguru import logger
 from strands import Agent
 from strands.models.gemini import GeminiModel
 from strands.session import FileSessionManager
-from strands_tools import handoff_to_user, stop
+from strands_tools import calculator, stop
 
 from src.config import settings
 from src.services.redis_client import RedisClient
@@ -16,14 +15,14 @@ class AgentOrchestrator:
 
     def __init__(self, chat_id: str):
         self.chat_id = chat_id
-        self.stop_requested = False
+        self.requested_stop = False
 
         # Setup session management
         import os
 
         os.makedirs(settings.session_dir, exist_ok=True)
         self.session_manager = FileSessionManager(
-            session_id=chat_id, directory=settings.session_dir
+            session_id=chat_id, storage_dir=settings.session_dir
         )
 
         # Create model
@@ -56,31 +55,32 @@ class AgentOrchestrator:
         agent = Agent(
             agent_id=self.chat_id,
             model=self.model,
-            tools=[handoff_to_user, stop],  # Use built-in stop tool
+            tools=[calculator, stop],  # Use built-in stop tool
             session_manager=self.session_manager,
             system_prompt=(
-                "You are a helpful AI assistant. When asked to stop or if interrupted, "
-                "use the stop tool immediately. Be concise and helpful."
+                "You are a helpful AI assistant. You must follow if user ask you to count from 1 to 1000."
             ),
         )
 
-        logger.info(f"Start with state {self.stop_requested}")
         logger.info("Starting agent stream")
+
         # Stream agent response
         async for event in agent.stream_async(message):
+            # If already stopped, skip all event processing
+            if self.requested_stop:
+                continue
+
             # Check for stop signal during streaming
             if await self._check_stop():
                 logger.info(f"chat_id=<{self.chat_id}> | Stop detected during streaming")
-                agent.tool.stop(message="The agent has been gracefully stopped!")
+                agent.tool.stop()
                 yield "[STOPPED]"
+                continue  # Skip processing this event after stopping
 
             logger.info(event)
-            await asyncio.sleep(1)
+
             if "data" in event:
                 yield event["data"]
-
-            # Small delay to allow stop signal checks
-            await asyncio.sleep(0.01)
 
         logger.info(f"chat_id=<{self.chat_id}> | Processing complete")
 
@@ -90,13 +90,13 @@ class AgentOrchestrator:
         Returns:
             True if stop was requested
         """
-        if self.stop_requested:
+        if self.requested_stop:
             return True
 
         try:
             stop_detected = await RedisClient.check_stop_signal(self.chat_id)
             if stop_detected:
-                self.stop_requested = True
+                self.requested_stop = True
                 return True
         except Exception as e:
             logger.error(f"chat_id=<{self.chat_id}> | Failed to check stop: {e}")
