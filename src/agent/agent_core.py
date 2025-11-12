@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import AsyncGenerator
 
 from loguru import logger
@@ -67,12 +66,16 @@ class AgentOrchestrator:
 
         # Stream agent response
         async for event in agent.stream_async(message):
+            # If already stopped, skip all event processing
+            if self.requested_stop:
+                continue
+
             # Check for stop signal during streaming
-            if self.requested_stop is False and await self._check_stop():
+            if await self._check_stop():
                 logger.info(f"chat_id=<{self.chat_id}> | Stop detected during streaming")
                 agent.tool.stop()
-                self.requested_stop = True
                 yield "[STOPPED]"
+                continue  # Skip processing this event after stopping
 
             logger.info(event)
 
